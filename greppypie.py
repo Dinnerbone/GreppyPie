@@ -62,14 +62,15 @@ class GreppyPieBot(SingleServerIRCBot):
                 self.connection.privmsg(event.target, "%s: I'm sorry, I don't know when %s is" % (event.source.nick, date))
                 return
 
-            results = {}
+            results = u""
             for file in glob.iglob("%s%s_%s.log" % (self.config['logs'], channel, date)):
                 lines = []
                 for line in open(file, 'r'):
                     if re.search(search, line, re.IGNORECASE):
                         lines.append(unicode(line.strip(), errors='replace'))
                 if lines:
-                    results[file[len(self.config['logs']):]] = {"content": u"\n".join(lines)}
+                    date = file[len(self.config['logs']) + len(channel) + 1:-len(".log")]
+                    results += u"----- %s-%s-%s -----\n%s\n\n" % (date[0:4], date[4:6], date[6:8], u"\n".join(lines))
 
             if results:
                 try:
@@ -78,14 +79,18 @@ class GreppyPieBot(SingleServerIRCBot):
                         data=json.dumps({
                             "description": "",
                             "public": False,
-                            "files": results
+                            "files": {
+                                "results.txt": {
+                                    "content": results
+                                }
+                            }
                         }),
                         headers={
                             'Content-Type': 'application/json'
                         }
                     )
                     if r.status_code == 201:
-                        self.connection.privmsg(event.target, '%s: %s' % (event.source.nick, r.json()['html_url']))
+                        self.connection.privmsg(event.target, '%s: %s' % (event.source.nick, r.json()['files']['results.txt']['raw_url']))
                     else:
                         self.connection.privmsg(event.target, '%s: Sorry... something went wrong. :( I got a HTTP %s: %s' % (event.source.nick, r.status_code, r.text))
                 except Exception as exception:
