@@ -69,7 +69,7 @@ class GreppyPieBot(SingleServerIRCBot):
                     if re.search(search, line, re.IGNORECASE):
                         lines.append(line.strip())
                 if lines:
-                    results[file[len(self.config['logs']):]] = {"content": "\n".join(lines)}
+                    results[file[len(self.config['logs']):]] = {"content": u"\n".join(lines)}
 
             if results:
                 try:
