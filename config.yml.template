@@ -1,0 +1,11 @@
+join:
+- '##dbtest'
+logs: '/home/bouncer/path/to/logs'
+channels:
+- '#minecraft'
+nickname: GreppyPie
+realname: 'A GreppyPie clone'
+server: !!python/object:irc.bot.ServerSpec
+  host: irc.freenode.net
+  password: 
+  port: 6667
