@@ -67,7 +67,7 @@ class GreppyPieBot(SingleServerIRCBot):
                 lines = []
                 for line in open(file, 'r'):
                     if re.search(search, line, re.IGNORECASE):
-                        lines.append(line.strip())
+                        lines.append(unicode(line.strip(), errors='replace'))
                 if lines:
                     results[file[len(self.config['logs']):]] = {"content": u"\n".join(lines)}
 
