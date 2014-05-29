@@ -92,7 +92,7 @@ class GreppyPieBot(SingleServerIRCBot):
                     logger.exception(exception)
                     self.connection.privmsg(event.target, '%s: Sorry... something went wrong. :( I got a %s' % (event.source.nick, exception.__class__.__name__))
             else:
-                self.connection.privmsg(event.target, "%s: Sorry, no results searching %s %s for " % (event.source.nick, channel, date, search))
+                self.connection.privmsg(event.target, "%s: Sorry, no results searching %s %s for %s" % (event.source.nick, channel, date, search))
         else:
             self.connection.privmsg(event.target, "%s: I'm sorry, I don't know what you mean" % (event.source.nick))
 
