@@ -47,7 +47,7 @@ class GreppyPieBot(SingleServerIRCBot):
     def perform_grep_request(self, event, command):
         match = re.match(r"^(?P<channel>[#\w]+) (?P<date>[\d-]+) (?P<search>.+)$", command, flags=re.UNICODE)
         if match:
-            channel = match.group("channel")
+            channel = match.group("channel").lower()
             date = match.group("date")
             search = match.group("search")
 
@@ -66,7 +66,7 @@ class GreppyPieBot(SingleServerIRCBot):
             for file in glob.iglob("%s%s_%s.log" % (self.config['logs'], channel, date)):
                 lines = []
                 for line in open(file, 'r'):
-                    if re.search(search, line):
+                    if re.search(search, line, re.IGNORECASE):
                         lines.append(line.strip())
                 if lines:
                     results[file[len(self.config['logs']):]] = {"content": "\n".join(lines)}
