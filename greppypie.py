@@ -58,7 +58,7 @@ class GreppyPieBot(SingleServerIRCBot):
             try:
                 pattern = re.compile(search)
             except re.error as e:
-                self.connection.privmsg(event.target, "%s: I'm sorry, but that is an invalid pattern (%s)" % (event.source.nick, search))
+                self.connection.privmsg(event.target, "%s: I'm sorry, but that is an invalid pattern (%s)" % (event.source.nick, e))
                 return
 
             date = date.replace("-", "")
