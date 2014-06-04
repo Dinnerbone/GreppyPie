@@ -55,6 +55,12 @@ class GreppyPieBot(SingleServerIRCBot):
                 self.connection.privmsg(event.target, "%s: I'm sorry, I cannot let you grep %s" % (event.source.nick, channel))
                 return
 
+            try:
+                pattern = re.compile(search)
+            except re.error as e:
+                self.connection.privmsg(event.target, "%s: I'm sorry, but that is an invalid pattern (%s)" % (event.source.nick, search))
+                return
+
             date = date.replace("-", "")
             date = date.ljust(8, "?")
 
@@ -66,7 +72,7 @@ class GreppyPieBot(SingleServerIRCBot):
             for file in glob.iglob("%s%s_%s.log" % (self.config['logs'], channel, date)):
                 lines = []
                 for line in open(file, 'r'):
-                    if re.search(search, line, re.IGNORECASE):
+                    if re.search(pattern, line, re.IGNORECASE):
                         lines.append(unicode(line.strip(), errors='replace'))
                 if lines:
                     date = file[len(self.config['logs']) + len(channel) + 1:-len(".log")]
@@ -100,9 +106,6 @@ class GreppyPieBot(SingleServerIRCBot):
                 self.connection.privmsg(event.target, "%s: Sorry, no results searching %s %s for %s" % (event.source.nick, channel, date, search))
         else:
             self.connection.privmsg(event.target, "%s: I'm sorry, I don't know what you mean" % (event.source.nick))
-
-        # gist = self.gist.create(public=0, content='Hello world')
-        # self.connection.privmsg(event.target, '%s: %s' % (event.source.nick, gist['Gist-Link']))
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
