@@ -56,7 +56,7 @@ class GreppyPieBot(SingleServerIRCBot):
                 return
 
             try:
-                pattern = re.compile(search)
+                pattern = re.compile(search, re.IGNORECASE)
             except re.error as e:
                 self.connection.privmsg(event.target, "%s: I'm sorry, but that is an invalid pattern (%s)" % (event.source.nick, e))
                 return
@@ -72,7 +72,7 @@ class GreppyPieBot(SingleServerIRCBot):
             for file in glob.iglob("%s%s_%s.log" % (self.config['logs'], channel, date)):
                 lines = []
                 for line in open(file, 'r'):
-                    if re.search(pattern, line, re.IGNORECASE):
+                    if re.search(pattern, line):
                         lines.append(unicode(line.strip(), errors='replace'))
                 if lines:
                     date = file[len(self.config['logs']) + len(channel) + 1:-len(".log")]
