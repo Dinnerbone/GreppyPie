@@ -69,11 +69,13 @@ class GreppyPieBot(SingleServerIRCBot):
                 return
 
             results = u""
+            totalLines = 0
             for file in glob.iglob("%s%s_%s.log" % (self.config['logs'], channel, date)):
                 lines = []
                 for line in open(file, 'r'):
                     if re.search(pattern, line):
                         lines.append(unicode(line.strip(), errors='replace'))
+                        totalLines = totalLines + 1
                 if lines:
                     date = file[len(self.config['logs']) + len(channel) + 1:-len(".log")]
                     results += u"----- %s-%s-%s -----\n%s\n\n" % (date[0:4], date[4:6], date[6:8], u"\n".join(lines))
@@ -96,7 +98,7 @@ class GreppyPieBot(SingleServerIRCBot):
                         }
                     )
                     if r.status_code == 201:
-                        self.connection.privmsg(event.target, '%s: %s' % (event.source.nick, r.json()['files']['results.txt']['raw_url']))
+                        self.connection.privmsg(event.target, '%s: %s (%d lines found)' % (event.source.nick, r.json()['files']['results.txt']['raw_url'], totalLines))
                     else:
                         self.connection.privmsg(event.target, '%s: Sorry... something went wrong. :( I got a HTTP %s: %s' % (event.source.nick, r.status_code, r.text))
                 except Exception as exception:
