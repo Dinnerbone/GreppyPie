@@ -13,6 +13,17 @@ import collections
 logger = logging.getLogger(__name__)
 ServerConnection.buffer_class.errors = 'replace'
 
+class LogEntry:
+    def __init__(self, line, type):
+        self.type = type
+        self.line = line
+
+    def __unicode__(self):
+        return u"%s  (--%s)" % (self.line, self.type)
+
+    def __str__(self):
+        return unicode(self).encode('utf-8')
+
 class GreppyPieBot(SingleServerIRCBot):
     def __init__(self, config_file):
         self.config_file = config_file
@@ -52,12 +63,22 @@ class GreppyPieBot(SingleServerIRCBot):
             lines = []
             for line in open(file, 'r'):
                 if re.search(pattern, line):
-                    lines.append(unicode(line.strip(), errors='replace'))
+                    lines.append(self.create_log_line(unicode(line.strip(), errors='replace')))
             if lines:
                 date = file[-len(".log") - len("yyyymmdd"):-len(".log")]
                 results[date] = lines
 
         return results
+
+    def create_log_line(self, line):
+        type = "UNKNOWN"
+
+        for key, pattern in self.config['format'].iteritems():
+            if re.match(self.config['format'][key], line):
+                type = key
+                break
+
+        return LogEntry(line, type)
 
     def perform_grep_request(self, event, command):
         match = re.match(r"^(?P<channel>[#\w]+) (?P<date>[\d-]+) (?P<search>.+)$", command, flags=re.UNICODE)
@@ -85,13 +106,17 @@ class GreppyPieBot(SingleServerIRCBot):
 
             results = self.grep_for_lines("%s%s_%s.log" % (self.config['logs'], channel, date), pattern)
             totalLines = 0
+            linesByType = collections.defaultdict(int)
 
             if results:
                 gist = u""
 
                 for date, lines in results.iteritems():
-                    gist += u"----- %s-%s-%s -----\n%s\n\n" % (date[0:4], date[4:6], date[6:8], u"\n".join(lines))
+                    gist += u"----- %s-%s-%s -----\n%s\n\n" % (date[0:4], date[4:6], date[6:8], u"\n".join(unicode(line) for line in lines))
                     totalLines += len(lines)
+                    for line in lines:
+                        totalLines += 1
+                        linesByType[line.type] += 1
 
                 try:
                     r = requests.post(
@@ -110,7 +135,7 @@ class GreppyPieBot(SingleServerIRCBot):
                         }
                     )
                     if r.status_code == 201:
-                        self.connection.privmsg(event.target, '%s: %s (%d lines found)' % (event.source.nick, r.json()['files']['results.txt']['raw_url'], totalLines))
+                        self.connection.privmsg(event.target, '%s: %s (%d lines found - mostly of type %s)' % (event.source.nick, r.json()['files']['results.txt']['raw_url'], totalLines, max(linesByType, key=linesByType.get)))
                     else:
                         self.connection.privmsg(event.target, '%s: Sorry... something went wrong. :( I got a HTTP %s: %s' % (event.source.nick, r.status_code, r.text))
                 except Exception as exception:
