@@ -70,7 +70,7 @@ class GreppyPieBot(SingleServerIRCBot):
 
             results = u""
             totalLines = 0
-            for file in glob.iglob("%s%s_%s.log" % (self.config['logs'], channel, date)):
+            for file in sorted(glob.iglob("%s%s_%s.log" % (self.config['logs'], channel, date))):
                 lines = []
                 for line in open(file, 'r'):
                     if re.search(pattern, line):
