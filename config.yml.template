@@ -9,3 +9,8 @@ server: !!python/object:irc.bot.ServerSpec
   host: irc.freenode.net
   password: 
   port: 6667
+format:
+  action: ^\[[^\]]*(\d{2}):\d+:\d+\] \* (\S+) (.*)$
+  join: '^\[[^\]]*(\d{2}):\d+:\d+\] \*{3} Joins: (\S+) \((\S+)\)$'
+  message: ^\[[^\]]*(\d{2}):\d+:\d+\] <([^>]+)> (.*)$
+  quit: '^\[[^\]]*(\d{2}):\d+:\d+\] \*{3} Quits: (\S+) \((\S+)\) (.*)$'
