@@ -8,6 +8,7 @@ import irc.strings
 import glob
 import requests
 import json
+import collections
 
 logger = logging.getLogger(__name__)
 ServerConnection.buffer_class.errors = 'replace'
@@ -44,6 +45,20 @@ class GreppyPieBot(SingleServerIRCBot):
             for channel in self.config['join']:
                 connection.join(channel)
 
+    def grep_for_lines(self, files, pattern):
+        results = collections.OrderedDict()
+
+        for file in sorted(glob.iglob(files)):
+            lines = []
+            for line in open(file, 'r'):
+                if re.search(pattern, line):
+                    lines.append(unicode(line.strip(), errors='replace'))
+            if lines:
+                date = file[-len(".log") - len("yyyymmdd"):-len(".log")]
+                results[date] = lines
+
+        return results
+
     def perform_grep_request(self, event, command):
         match = re.match(r"^(?P<channel>[#\w]+) (?P<date>[\d-]+) (?P<search>.+)$", command, flags=re.UNICODE)
         if match:
@@ -68,19 +83,16 @@ class GreppyPieBot(SingleServerIRCBot):
                 self.connection.privmsg(event.target, "%s: I'm sorry, I don't know when %s is" % (event.source.nick, date))
                 return
 
-            results = u""
+            results = self.grep_for_lines("%s%s_%s.log" % (self.config['logs'], channel, date), pattern)
             totalLines = 0
-            for file in sorted(glob.iglob("%s%s_%s.log" % (self.config['logs'], channel, date))):
-                lines = []
-                for line in open(file, 'r'):
-                    if re.search(pattern, line):
-                        lines.append(unicode(line.strip(), errors='replace'))
-                        totalLines = totalLines + 1
-                if lines:
-                    date = file[len(self.config['logs']) + len(channel) + 1:-len(".log")]
-                    results += u"----- %s-%s-%s -----\n%s\n\n" % (date[0:4], date[4:6], date[6:8], u"\n".join(lines))
 
             if results:
+                gist = u""
+
+                for date, lines in results.iteritems():
+                    gist += u"----- %s-%s-%s -----\n%s\n\n" % (date[0:4], date[4:6], date[6:8], u"\n".join(lines))
+                    totalLines += len(lines)
+
                 try:
                     r = requests.post(
                         "https://api.github.com/gists",
@@ -89,7 +101,7 @@ class GreppyPieBot(SingleServerIRCBot):
                             "public": False,
                             "files": {
                                 "results.txt": {
-                                    "content": results
+                                    "content": gist
                                 }
                             }
                         }),
