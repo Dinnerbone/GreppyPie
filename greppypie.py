@@ -118,6 +118,11 @@ class GreppyPieBot(SingleServerIRCBot):
                         totalLines += 1
                         linesByType[line.type] += 1
 
+                stats = u""
+
+                for type, count in sorted(linesByType.iteritems(), key=lambda item: -item[1]):
+                    stats += u"%s: %d%% (%d lines)\n" % (type, float(count) / totalLines * 100, count)
+
                 try:
                     r = requests.post(
                         "https://api.github.com/gists",
@@ -126,7 +131,7 @@ class GreppyPieBot(SingleServerIRCBot):
                             "public": False,
                             "files": {
                                 "results.txt": {
-                                    "content": gist
+                                    "content": u"Showing %d log lines over %d days for search pattern: %s\n%s\n%s" % (totalLines, len(results), pattern.pattern, stats, gist)
                                 }
                             }
                         }),

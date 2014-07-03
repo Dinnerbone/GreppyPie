@@ -10,7 +10,18 @@ server: !!python/object:irc.bot.ServerSpec
   password: 
   port: 6667
 format:
-  action: ^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \* (?P<nick>\S+) (?P<action>.*)$
+  action: '^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \* (?P<nick>\S+)(?: (?P<action>.*)|)$'
   join: '^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} Joins: (?P<nick>\S+) \((?P<ident>\S+)@(?P<host>\S+)\)$'
-  message: ^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] <(?P<nick>[^>]+)> (?P<message>.*)$
-  quit: '^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} Quits: (?P<nick>\S+) \((?P<ident>\S+)@(?P<host>\S+)\) (?P<message>.*)$'
+  kick: ^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} (?P<kickee_nick>\S+) was kicked
+    by (?P<kicker_nick>\S+) \((?P<message>.+)\)$
+  message: '^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] <(?P<nick>[^>]+)>(?: (?P<message>.*)|)$'
+  mode: '^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} (?P<nick>\S+) sets mode: (?P<mode_changes>.+)$'
+  nick: ^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} (?P<nick>\S+) is now known as
+    (?P<new_nick>\S+)$
+  notice: '^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] -(?P<nick>[^>]+)-(?: (?P<message>.*)|)$'
+  part: '^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} Parts: (?P<nick>\S+) \((?P<ident>\S+)@(?P<host>\S+)\)
+    (?P<message>.*)$'
+  quit: '^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} Quits: (?P<nick>\S+) \((?P<ident>\S+)@(?P<host>\S+)\)
+    (?P<message>.*)$'
+  topic: ^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} (?P<nick>\S+) changes topic
+    to (?P<new_topic>.+)$
