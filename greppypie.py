@@ -113,7 +113,6 @@ class GreppyPieBot(SingleServerIRCBot):
 
                 for date, lines in results.iteritems():
                     gist += u"----- %s-%s-%s -----\n%s\n\n" % (date[0:4], date[4:6], date[6:8], u"\n".join(unicode(line) for line in lines))
-                    totalLines += len(lines)
                     for line in lines:
                         totalLines += 1
                         linesByType[line.type] += 1
