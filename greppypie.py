@@ -42,6 +42,16 @@ class GreppyPieBot(SingleServerIRCBot):
         with open(self.config_file, 'w') as file:
             yaml.dump(self.config, file, default_flow_style=False)
 
+    def on_action(self, connection, event):
+        target = event.target
+        split = event.arguments[0].split(" ")
+
+        if target == connection.get_nickname():
+            target = NickMask(event.source).nick
+
+        if len(split) == 2 and split[1] == connection.get_nickname():
+            connection.action(target, u"%s %s \u2764" % (split[0], NickMask(event.source).nick))
+
     def on_welcome(self, connection, event):
         for channel in self.config['join']:
             connection.join(channel)
