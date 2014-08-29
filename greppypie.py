@@ -50,7 +50,7 @@ class GreppyPieBot(SingleServerIRCBot):
             target = NickMask(event.source).nick
 
         if len(split) == 2 and split[1] == connection.get_nickname():
-            connection.action(target, u"%s %s \u2764" % (split[0], NickMask(event.source).nick))
+            connection.action(target, u"%s %s <3" % (split[0], NickMask(event.source).nick))
 
     def on_welcome(self, connection, event):
         for channel in self.config['join']:
