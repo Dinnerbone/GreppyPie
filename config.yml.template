@@ -12,7 +12,7 @@ server: !!python/object:irc.bot.ServerSpec
 format:
   action: '^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \* (?P<nick>\S+)(?: (?P<action>.*)|)$'
   join: '^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} Joins: (?P<nick>\S+) \((?P<ident>\S+)@(?P<host>\S+)\)$'
-  kick: ^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} (?P<kickee_nick>\S+) was kicked
+  kick: ^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} (?P<nick>\S+) was kicked
     by (?P<kicker_nick>\S+) \((?P<message>.+)\)$
   message: '^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] <(?P<nick>[^>]+)>(?: (?P<message>.*)|)$'
   mode: '^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} (?P<nick>\S+) sets mode: (?P<mode_changes>.+)$'

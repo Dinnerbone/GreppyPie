@@ -14,9 +14,10 @@ logger = logging.getLogger(__name__)
 ServerConnection.buffer_class.errors = 'replace'
 
 class LogEntry:
-    def __init__(self, line, type):
+    def __init__(self, line, type, user):
         self.type = type
         self.line = line
+        self.user = user
 
     def __unicode__(self):
         return self.line
@@ -68,27 +69,71 @@ class GreppyPieBot(SingleServerIRCBot):
 
     def grep_for_lines(self, files, pattern):
         results = collections.OrderedDict()
+        users = collections.OrderedDict()
 
         for file in sorted(glob.iglob(files)):
             lines = []
             for line in open(file, 'r'):
                 if re.search(pattern, line):
-                    lines.append(self.create_log_line(unicode(line.strip(), errors='replace')))
+                    lines.append(self.create_log_line(unicode(line.strip(), errors='replace'), users, True))
+                else:
+                    self.create_log_line(unicode(line.strip(), errors='replace'), users, False)
             if lines:
                 date = file[-len(".log") - len("yyyymmdd"):-len(".log")]
                 results[date] = lines
 
         return results
 
-    def create_log_line(self, line):
+    def create_log_line(self, line, users, is_active):
         type = "UNKNOWN"
+        user = ("UNKNOWN", "UNKNOWN", "UNKNOWN")
 
         for key, pattern in self.config['format'].iteritems():
-            if re.match(self.config['format'][key], line):
+            match = re.match(self.config['format'][key], line)
+            if match:
                 type = key
+                if not "nick" in match.groupdict():
+                    print "WTF IS %s\n" % line
+                nick = match.group("nick")
+
+                if nick:
+                    if "host" in match.groupdict() and "ident" in match.groupdict():
+                        user = (nick, match.group("ident"), match.group("host"))
+                        users[nick] = user
+                    elif nick in users:
+                        user = users[nick]
+                    else:
+                        user = (nick, "UNKNOWN", "UNKNOWN")
+                        users[nick] = user
+
+                    if "new_nick" in match.groupdict():
+                        new_nick = match.group("new_nick")
+                        user = (new_nick, user[1], user[2])
+                        users[new_nick] = user
+                        del users[nick]
+
                 break
 
-        return LogEntry(line, type)
+        return LogEntry(line, type, user)
+
+    def generate_user_stats(self, users):
+        result = u""
+        hosts = set(user[2] for user in users)
+        by_hosts = collections.OrderedDict()
+
+        for user in users:
+            host = user[2]
+            if not host in by_hosts:
+                by_hosts[host] = set()
+            by_hosts[host].add(user)
+
+        for host, users in sorted(by_hosts.iteritems(), key=lambda (host, users): len(users)):
+            result += u"%s:\n" % host
+            for user in users:
+                result += u"\t%s!%s@%s\n" % user
+            result += u"\n"
+
+        return result
 
     def perform_grep_request(self, event, command):
         match = re.match(r"^(?P<channel>[#\w]+) (?P<date>[\d-]+) (?P<search>.+)$", command, flags=re.UNICODE)
@@ -120,12 +165,14 @@ class GreppyPieBot(SingleServerIRCBot):
 
             if results:
                 gist = u""
+                users = set()
 
                 for date, lines in results.iteritems():
                     gist += u"----- %s-%s-%s -----\n%s\n\n" % (date[0:4], date[4:6], date[6:8], u"\n".join(unicode(line) for line in lines))
                     for line in lines:
                         totalLines += 1
                         linesByType[line.type] += 1
+                        users.add(line.user)
 
                 stats = u""
 
@@ -140,7 +187,7 @@ class GreppyPieBot(SingleServerIRCBot):
                             "public": False,
                             "files": {
                                 "results.txt": {
-                                    "content": u"Showing %d log lines over %d days for search pattern: %s\n%s\n%s" % (totalLines, len(results), pattern.pattern, stats, gist)
+                                    "content": u"Showing %d log lines over %d days for search pattern: %s\n%s\n%s\n\nUsers:\n%s" % (totalLines, len(results), pattern.pattern, stats, gist, self.generate_user_stats(users))
                                 }
                             }
                         }),
