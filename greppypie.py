@@ -44,7 +44,7 @@ class GreppyPieBot(SingleServerIRCBot):
 
     def on_action(self, connection, event):
         target = event.target
-        split = event.arguments[0].split(" ")
+        split = event.arguments[0].rstrip().split(" ")
 
         if target == connection.get_nickname():
             target = NickMask(event.source).nick
