@@ -119,16 +119,16 @@ class GreppyPieBot(SingleServerIRCBot):
                         for target in targets:
                             if "new_nick" in match.groupdict():
                                 new_nick = match.group("new_nick")
-                                if target[0] == nick:
+                                if target[0].lower() == nick.lower():
                                     self.add_user_connection(results, (new_nick, target[1], target[2]), "Changed nick from %s to %s" % (nick, new_nick))
-                                elif target[0] == new_nick:
+                                elif target[0].lower() == new_nick.lower():
                                     self.add_user_connection(results, (nick, target[1], target[2]), "Changed nick from %s to %s" % (nick, new_nick))
                             else:
                                 ident = match.group("ident")
                                 host = match.group("host")
-                                if target[0] == nick:
+                                if target[0].lower() == nick.lower():
                                     self.add_user_connection(results, (nick, ident, host))
-                                elif target[2] == host:
+                                elif target[2].lower() == host.lower():
                                     self.add_user_connection(results, (nick, ident, host), "Has the same host")
 
         return results
