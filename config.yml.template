@@ -25,3 +25,8 @@ format:
     (?P<message>.*)$'
   topic: ^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} (?P<nick>\S+) changes topic
     to (?P<new_topic>.+)$
+stalker_formats:
+- 'join'
+- 'nick'
+- 'part'
+- 'quit'
