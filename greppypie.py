@@ -131,21 +131,25 @@ class GreppyPieBot(SingleServerIRCBot):
         
         return None
 
-    def find_similar_users(self, files, search_nicks, search_idents, search_hosts, nicks=None, idents=None, hosts=None):
+    def find_similar_users(self, files, search_nicks, search_idents, search_hosts, nicks=None, idents=None, hosts=None, last_seen=None):
         if not nicks:
             nicks = collections.OrderedDict()
         if not idents:
             idents = collections.OrderedDict()
         if not hosts:
             hosts = collections.OrderedDict()
+        if not last_seen:
+            last_seen = collections.OrderedDict()
 
         for file in sorted(glob.iglob(files)):
+            date = file[-len(".log") - len("yyyymmdd"):-len(".log")]
             for line in open(file, 'r'):
                 line = unicode(line.strip(), errors='replace')
                 for type in self.config['stalker_formats']:
                     match = re.match(self.config['format'][type], line)
                     if match:
                         nick = match.group("nick")
+                        seen = False
 
                         if "new_nick" in match.groupdict():
                             new_nick = match.group("new_nick")
@@ -162,16 +166,19 @@ class GreppyPieBot(SingleServerIRCBot):
                                     new_nick_equality = self.test_nick_equality(search_nick, new_nick)
                                     if new_nick_equality:
                                         nicks[new_nick] = u"Changed nick from %s to %s" % (nick, new_nick)
+                                        seen = True
                                 elif nick not in nicks:
                                     nick_equality = self.test_nick_equality(search_nick, nick)
                                     if nick_equality:
                                         nicks[nick] = u"Changed nick from %s to %s" % (nick, new_nick)
+                                        seen = True
                             else:
                                 if nick not in nicks:
                                     nick_equality = self.test_nick_equality(search_nick, nick)
                                     if nick_equality:
                                         nicks[nick] = u"Nick %s %s %s!%s@%s" % (search_nick, nick_equality, nick, ident, host)
                                 if nick in nicks:
+                                    seen = True
                                     if ident not in idents:
                                         idents[ident] = self.join_mask((nick, ident, host))
                                     if host not in hosts:
@@ -181,6 +188,7 @@ class GreppyPieBot(SingleServerIRCBot):
                             if ident and host:
                                 if ident not in idents:
                                     if search_ident.lower() == ident.lower():
+                                        seen = True
                                         idents[ident] = u"Ident %s is identical to %s!%s@%s" % (search_ident, nick, ident, host)
 
                         for search_host in search_hosts:
@@ -190,12 +198,16 @@ class GreppyPieBot(SingleServerIRCBot):
                                     if host_equality:
                                         hosts[host] = u"Host %s %s %s" % (search_host, host_equality, nick, ident, host)
                                 if host in hosts:
+                                    seen = True
                                     if nick not in nicks:
                                         nicks[nick] = self.join_mask((nick, ident, host))
                                     if ident not in idents:
                                         idents[ident] = self.join_mask((nick, ident, host))
 
-        return nicks, idents, hosts
+                        if seen and ident and host:
+                            last_seen[self.join_mask((nick, ident, host))] = u"%s-%s-%s %s" % (date[0:4], date[4:6], date[6:8], match.group("time"))
+
+        return nicks, idents, hosts, last_seen
 
     def add_user_connection(self, results, user, reason=None):
         if user not in results:
@@ -308,32 +320,36 @@ class GreppyPieBot(SingleServerIRCBot):
             self.connection.privmsg(event.target, "%s: I'm sorry, I don't know when %s is" % (event.source.nick, date))
             return
 
-        nicks, idents, hosts = self.find_similar_users("%s%s_%s.log" % (self.config['logs'], channel, date), search_nicks, search_idents, search_hosts)
-        nicks, idents, hosts = self.find_similar_users("%s%s_%s.log" % (self.config['logs'], channel, date), nicks.keys(), idents.keys(), hosts.keys(), nicks, idents, hosts)
+        nicks, idents, hosts, last_seen = self.find_similar_users("%s%s_%s.log" % (self.config['logs'], channel, date), search_nicks, search_idents, search_hosts)
+        nicks, idents, hosts, last_seen = self.find_similar_users("%s%s_%s.log" % (self.config['logs'], channel, date), nicks.keys(), idents.keys(), hosts.keys(), nicks, idents, hosts, last_seen)
 
-        if nicks or idents or hosts:
+        if nicks or idents or hosts or last_seen:
             gist = u"Showing %d nick(s) / %d ident(s) / %d host(s) for %s" % (len(nicks), len(idents), len(hosts), search)
 
             gist += u"\n\nNicks:\n"
             for nick, reason in nicks.iteritems():
                 if reason:
-                    gist += u"\t%s   (%s)\n" % (nick, reason)
+                    gist += u"\t%s     (%s)\n" % (nick, reason)
                 else:
                     gist += u"\t%s\n" % nick
 
             gist += u"\n\nIdents:\n"
             for ident, reason in idents.iteritems():
                 if reason:
-                    gist += u"\t%s   (%s)\n" % (ident, reason)
+                    gist += u"\t%s     (%s)\n" % (ident, reason)
                 else:
                     gist += u"\t%s\n" % ident
 
             gist += u"\n\nHosts:\n"
             for host, reason in hosts.iteritems():
                 if reason:
-                    gist += u"\t%s   (%s)\n" % (host, reason)
+                    gist += u"\t%s     (%s)\n" % (host, reason)
                 else:
                     gist += u"\t%s\n" % host
+
+            gist += u"\n\nFull User Masks:\n"
+            for user, when in last_seen.iteritems():
+                gist += u"\t%s     (%s)\n" % (user, when)
 
             self.create_gist(
                 event.target,
