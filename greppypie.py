@@ -104,9 +104,40 @@ class GreppyPieBot(SingleServerIRCBot):
 
         return results
 
-    def find_similar_users(self, files, targets, results=None):
-        if not results:
-            results = collections.OrderedDict()
+    def test_nick_equality(self, nick_a, nick_b):
+        if nick_a.lower() == nick_b.lower():
+            return "is identical to"
+
+        pattern = re.compile(r"^[\W_]?(?:\[.+?\])?(?P<nick>\w+?)(?:[\W_]\w+|away|gone|bnc|off|z+|sleep|afk|work)?[\W_]*$", flags=re.IGNORECASE)
+        match_a = pattern.match(nick_a)
+        match_b = pattern.match(nick_b)
+
+        if match_a and match_b:
+            if match_a.group("nick").lower() == match_b.group("nick").lower():
+                return "is similar to"
+        
+        return None
+
+    def test_host_equality(self, host_a, host_b):
+        if host_a.lower() == host_b.lower():
+            return "is identical to"
+        pattern = re.compile(r"\b(?:[0-9]{1,3}[\.-]){3}[0-9]{1,3}\b")
+        match_a = pattern.match(host_a)
+        match_b = pattern.match(host_b)
+
+        if match_a and match_b:
+            if match_a.group(0) == match_b.group(0):
+                return "has same ip as"
+        
+        return None
+
+    def find_similar_users(self, files, search_nicks, search_idents, search_hosts, nicks=None, idents=None, hosts=None):
+        if not nicks:
+            nicks = collections.OrderedDict()
+        if not idents:
+            idents = collections.OrderedDict()
+        if not hosts:
+            hosts = collections.OrderedDict()
 
         for file in sorted(glob.iglob(files)):
             for line in open(file, 'r'):
@@ -116,22 +147,55 @@ class GreppyPieBot(SingleServerIRCBot):
                     if match:
                         nick = match.group("nick")
 
-                        for target in targets:
-                            if "new_nick" in match.groupdict():
-                                new_nick = match.group("new_nick")
-                                if target[0].lower() == nick.lower():
-                                    self.add_user_connection(results, (new_nick, target[1], target[2]), "Changed nick from %s to %s" % (nick, new_nick))
-                                elif target[0].lower() == new_nick.lower():
-                                    self.add_user_connection(results, (nick, target[1], target[2]), "Changed nick from %s to %s" % (nick, new_nick))
-                            else:
-                                ident = match.group("ident")
-                                host = match.group("host")
-                                if target[0].lower() == nick.lower():
-                                    self.add_user_connection(results, (nick, ident, host))
-                                elif target[2].lower() == host.lower():
-                                    self.add_user_connection(results, (nick, ident, host), "Has the same host")
+                        if "new_nick" in match.groupdict():
+                            new_nick = match.group("new_nick")
+                            ident = None
+                            host = None
+                        else:
+                            new_nick = None
+                            ident = match.group("ident")
+                            host = match.group("host")
 
-        return results
+                        for search_nick in search_nicks:
+                            if new_nick:
+                                if new_nick not in nicks:
+                                    new_nick_equality = self.test_nick_equality(search_nick, new_nick)
+                                    if new_nick_equality:
+                                        nicks[new_nick] = u"Changed nick from %s to %s" % (nick, new_nick)
+                                elif nick not in nicks:
+                                    nick_equality = self.test_nick_equality(search_nick, nick)
+                                    if nick_equality:
+                                        nicks[nick] = u"Changed nick from %s to %s" % (nick, new_nick)
+                            else:
+                                if nick not in nicks:
+                                    nick_equality = self.test_nick_equality(search_nick, nick)
+                                    if nick_equality:
+                                        nicks[nick] = u"Nick %s %s %s!%s@%s" % (search_nick, nick_equality, nick, ident, host)
+                                if nick in nicks:
+                                    if ident not in idents:
+                                        idents[ident] = self.join_mask((nick, ident, host))
+                                    if host not in hosts:
+                                        hosts[host] = self.join_mask((nick, ident, host))
+
+                        for search_ident in search_idents:
+                            if ident and host:
+                                if ident not in idents:
+                                    if search_ident.lower() == ident.lower():
+                                        idents[ident] = u"Ident %s is identical to %s!%s@%s" % (search_ident, nick, ident, host)
+
+                        for search_host in search_hosts:
+                            if ident and host:
+                                if host not in hosts:
+                                    host_equality = self.test_host_equality(search_host, host)
+                                    if host_equality:
+                                        hosts[host] = u"Host %s %s %s" % (search_host, host_equality, nick, ident, host)
+                                if host in hosts:
+                                    if nick not in nicks:
+                                        nicks[nick] = self.join_mask((nick, ident, host))
+                                    if ident not in idents:
+                                        idents[ident] = self.join_mask((nick, ident, host))
+
+        return nicks, idents, hosts
 
     def add_user_connection(self, results, user, reason=None):
         if user not in results:
@@ -233,22 +297,37 @@ class GreppyPieBot(SingleServerIRCBot):
             self.connection.privmsg(event.target, "%s: I'm sorry, I don't know when %s is" % (event.source.nick, date))
             return
 
-        results = self.find_similar_users("%s%s_%s.log" % (self.config['logs'], channel, date), [target])
-        results = self.find_similar_users("%s%s_%s.log" % (self.config['logs'], channel, date), results.keys(), results)
+        nicks, idents, hosts = self.find_similar_users("%s%s_%s.log" % (self.config['logs'], channel, date), [target[0]], [target[1]], [target[2]])
+        nicks, idents, hosts = self.find_similar_users("%s%s_%s.log" % (self.config['logs'], channel, date), nicks.keys(), idents.keys(), hosts.keys(), nicks, idents, hosts)
 
-        if results:
-            gist = u"Showing %d duplicated users for %s\n\n" % (len(results), self.join_mask(target))
+        if nicks or idents or hosts:
+            gist = u"Showing %d nick(s) / %d ident(s) / %d host(s) for %s" % (len(nicks), len(idents), len(hosts), search)
 
-            for user, reasons in results.iteritems():
-                if reasons:
-                    gist += u"%s (%s)\n" % (self.join_mask(user), ", ".join(reasons))
+            gist += u"\n\nNicks:\n"
+            for nick, reason in nicks.iteritems():
+                if reason:
+                    gist += u"\t%s   (%s)\n" % (nick, reason)
                 else:
-                    gist += u"%s\n" % self.join_mask(user)
+                    gist += u"\t%s\n" % nick
+
+            gist += u"\n\nIdents:\n"
+            for ident, reason in idents.iteritems():
+                if reason:
+                    gist += u"\t%s   (%s)\n" % (ident, reason)
+                else:
+                    gist += u"\t%s\n" % ident
+
+            gist += u"\n\nHosts:\n"
+            for host, reason in hosts.iteritems():
+                if reason:
+                    gist += u"\t%s   (%s)\n" % (host, reason)
+                else:
+                    gist += u"\t%s\n" % host
 
             self.create_gist(
                 event.target,
                 event.source.nick,
-                u"%d users found" % len(results),
+                u"%d nick(s) / %d ident(s) / %d host(s)" % (len(nicks), len(idents), len(hosts)),
                 gist
             )
         else:
