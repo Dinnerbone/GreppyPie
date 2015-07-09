@@ -288,7 +288,18 @@ class GreppyPieBot(SingleServerIRCBot):
             self.connection.privmsg(event.target, "%s: I'm sorry, I cannot let you grep %s" % (event.source.nick, channel))
             return
 
-        target = self.split_mask(search)
+        search_nicks = set()
+        search_idents = set()
+        search_hosts = set()
+
+        for part in search.split(' '):
+            target = self.split_mask(part)
+            if target[0] and target[0] != '*':
+                search_nicks.add(target[0])
+            if target[1] and target[1] != '*':
+                search_nicks.add(target[1])
+            if target[2] and target[2] != '*':
+                search_nicks.add(target[2])
 
         date = date.replace("-", "")
         date = date.ljust(8, "?")
@@ -297,7 +308,7 @@ class GreppyPieBot(SingleServerIRCBot):
             self.connection.privmsg(event.target, "%s: I'm sorry, I don't know when %s is" % (event.source.nick, date))
             return
 
-        nicks, idents, hosts = self.find_similar_users("%s%s_%s.log" % (self.config['logs'], channel, date), [target[0]], [target[1]], [target[2]])
+        nicks, idents, hosts = self.find_similar_users("%s%s_%s.log" % (self.config['logs'], channel, date), search_nicks, search_idents, search_hosts)
         nicks, idents, hosts = self.find_similar_users("%s%s_%s.log" % (self.config['logs'], channel, date), nicks.keys(), idents.keys(), hosts.keys(), nicks, idents, hosts)
 
         if nicks or idents or hosts:
