@@ -327,21 +327,21 @@ class GreppyPieBot(SingleServerIRCBot):
             gist = u"Showing %d nick(s) / %d ident(s) / %d host(s) for %s" % (len(nicks), len(idents), len(hosts), search)
 
             gist += u"\n\nNicks:\n"
-            for nick, reason in nicks.iteritems():
+            for nick, reason in sorted(nicks.iteritems()):
                 if reason:
                     gist += u"\t%s     (%s)\n" % (nick, reason)
                 else:
                     gist += u"\t%s\n" % nick
 
             gist += u"\n\nIdents:\n"
-            for ident, reason in idents.iteritems():
+            for ident, reason in sorted(idents.iteritems()):
                 if reason:
                     gist += u"\t%s     (%s)\n" % (ident, reason)
                 else:
                     gist += u"\t%s\n" % ident
 
             gist += u"\n\nHosts:\n"
-            for host, reason in hosts.iteritems():
+            for host, reason in sorted(hosts.iteritems()):
                 if reason:
                     gist += u"\t%s     (%s)\n" % (host, reason)
                 else:
