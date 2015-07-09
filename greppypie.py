@@ -9,6 +9,7 @@ import glob
 import requests
 import json
 import collections
+import operator
 
 logger = logging.getLogger(__name__)
 ServerConnection.buffer_class.errors = 'replace'
@@ -348,8 +349,8 @@ class GreppyPieBot(SingleServerIRCBot):
                     gist += u"\t%s\n" % host
 
             gist += u"\n\nFull User Masks:\n"
-            for user, when in last_seen.iteritems():
-                gist += u"\t%s     (%s)\n" % (user, when)
+            for user, when in sorted(last_seen.iteritems(), key=operator.itemgetter(1)):
+                gist += u"\t%s - %s\n" % (when, user)
 
             self.create_gist(
                 event.target,
