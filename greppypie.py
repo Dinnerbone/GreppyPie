@@ -321,8 +321,8 @@ class GreppyPieBot(SingleServerIRCBot):
             self.connection.privmsg(event.target, "%s: I'm sorry, I don't know when %s is" % (event.source.nick, date))
             return
 
-        nicks, idents, hosts, last_seen = self.find_similar_users("%s%s_%s.log" % (self.config['logs'], channel, date), search_nicks, search_idents, search_hosts)
-        nicks, idents, hosts, last_seen = self.find_similar_users("%s%s_%s.log" % (self.config['logs'], channel, date), nicks.keys(), idents.keys(), hosts.keys(), nicks, idents, hosts, last_seen)
+        nicks, idents, hosts, last_seen = self.find_similar_users("%s%s/%s.log" % (self.config['logs'], channel, date), search_nicks, search_idents, search_hosts)
+        nicks, idents, hosts, last_seen = self.find_similar_users("%s%s/%s.log" % (self.config['logs'], channel, date), nicks.keys(), idents.keys(), hosts.keys(), nicks, idents, hosts, last_seen)
 
         if nicks or idents or hosts or last_seen:
             gist = u"Showing %d nick(s) / %d ident(s) / %d host(s) for %s" % (len(nicks), len(idents), len(hosts), search)
