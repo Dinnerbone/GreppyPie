@@ -269,7 +269,7 @@ class GreppyPieBot(SingleServerIRCBot):
             self.connection.privmsg(event.target, "%s: I'm sorry, I don't know when %s is" % (event.source.nick, date))
             return
 
-        results = self.grep_for_lines("%s%s_%s.log" % (self.config['logs'], channel, date), pattern)
+        results = self.grep_for_lines("%s%s/%s.log" % (self.config['logs'], channel, date), pattern)
         totalLines = 0
         linesByType = collections.defaultdict(int)
 
