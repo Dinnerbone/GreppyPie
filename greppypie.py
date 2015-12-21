@@ -377,20 +377,6 @@ class GreppyPieBot(irc.IRCClient):
             args = re.split(r"\b\S?\s", msg, 1, flags=re.UNICODE)
             if len(args) > 1 and args[0].lower() == self.nickname.lower():
                 msg = args[1].strip()
-                match = re.match(r"^(?P<channel>[#\w]+) (?P<date>\S+) (?P<search>.+)$", msg, flags=re.UNICODE)
-                if match:
-                    date = self._parse_date(match.group("date"))
-                    target = match.group("channel").lower()
-                    if not target in self.factory.config['channels']:
-                        self.msg(channel, "%s: I'm sorry, but I can't let you look at my %s logs." % (nick, target))
-                        return
-                    if date:
-                        req = self.history.grep_lines(target, date, match.group("search"), self.uploader)
-                        req.addCallback(lambda output: self.msg(channel, "%s: %s" % (nick, output)))
-                        req.addErrback(lambda error: self._report_error("%s: Sorry, but I got an error (%s) searching for that :(" % (nick, error.__class__.__name__), channel, error))
-                    else:
-                        self.msg(channel, "%s: I'm sorry, but that's an invalid date. (Valid examples: '-', 'today', '2015', '2011-02', 2011-02-03', etc)" % nick)
-                    return
 
                 match = re.match(r"^stalk (?P<channel>[#\w]+) (?P<date>\S+) (?P<search>.+)$", msg, flags=re.UNICODE)
                 if match:
@@ -401,6 +387,21 @@ class GreppyPieBot(irc.IRCClient):
                         return
                     if date:
                         req = self.history.stalk_user(target, date, match.group("search"), self.uploader)
+                        req.addCallback(lambda output: self.msg(channel, "%s: %s" % (nick, output)))
+                        req.addErrback(lambda error: self._report_error("%s: Sorry, but I got an error (%s) searching for that :(" % (nick, error.__class__.__name__), channel, error))
+                    else:
+                        self.msg(channel, "%s: I'm sorry, but that's an invalid date. (Valid examples: '-', 'today', '2015', '2011-02', 2011-02-03', etc)" % nick)
+                    return
+
+                match = re.match(r"^(?P<channel>[#\w]+) (?P<date>\S+) (?P<search>.+)$", msg, flags=re.UNICODE)
+                if match:
+                    date = self._parse_date(match.group("date"))
+                    target = match.group("channel").lower()
+                    if not target in self.factory.config['channels']:
+                        self.msg(channel, "%s: I'm sorry, but I can't let you look at my %s logs." % (nick, target))
+                        return
+                    if date:
+                        req = self.history.grep_lines(target, date, match.group("search"), self.uploader)
                         req.addCallback(lambda output: self.msg(channel, "%s: %s" % (nick, output)))
                         req.addErrback(lambda error: self._report_error("%s: Sorry, but I got an error (%s) searching for that :(" % (nick, error.__class__.__name__), channel, error))
                     else:
