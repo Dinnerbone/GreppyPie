@@ -1,19 +1,20 @@
 join:
-- '##dbtest'
-logs: '/home/bouncer/path/to/logs'
+- '##your-channel'
+logs: '/home/bouncer/path/to/logs/{channel}/*.log'
+log-filename: '^(?P<year>\d{4})-(?P<month>\d{2})-(?P<date>\d{2}).log$'
 channels:
-- '#minecraft'
+- '#channel-to-grep-in'
 nickname: GreppyPie
 realname: 'A GreppyPie clone'
-server: !!python/object:irc.bot.ServerSpec
+server:
   host: irc.freenode.net
   password: 
   port: 6667
 format:
   action: '^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \* (?P<nick>\S+)(?: (?P<action>.*)|)$'
   join: '^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} Joins: (?P<nick>\S+) \((?P<ident>\S+)@(?P<host>\S+)\)$'
-  kick: ^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} (?P<nick>\S+) was kicked
-    by (?P<kicker_nick>\S+) \((?P<message>.+)\)$
+  kick: ^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} (?P<nick>\S+) was kicked by (?P<kicker_nick>\S+)
+    \((?P<message>.+)\)$
   message: '^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] <(?P<nick>[^>]+)>(?: (?P<message>.*)|)$'
   mode: '^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} (?P<nick>\S+) sets mode: (?P<mode_changes>.+)$'
   nick: ^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} (?P<nick>\S+) is now known as
@@ -25,8 +26,3 @@ format:
     (?P<message>.*)$'
   topic: ^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} (?P<nick>\S+) changes topic
     to (?P<new_topic>.+)$
-stalker_formats:
-- 'join'
-- 'nick'
-- 'part'
-- 'quit'
