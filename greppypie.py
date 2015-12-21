@@ -263,7 +263,7 @@ class MessageHistory:
             header += "%s: %d%% (%d lines)\n" % (type, float(count) / total_lines * 100, count)
 
         if total_lines:
-            url = uploader._upload_text("Showing %d log lines over %d days for search pattern: %s\n%s\n%s" % (total_lines, len(lines_by_date), pattern, header, report))
+            url = uploader._upload_text("Showing %d log lines over %d days for search pattern: %s\n%s\n%s" % (total_lines, len(lines_by_date), pattern.pattern, header, report))
             return "%d log lines found - %s" % (total_lines, url)
         else:
             return "Sorry, but I couldn't find anything :("
@@ -397,11 +397,16 @@ class GreppyPieBot(irc.IRCClient):
                 if match:
                     date = self._parse_date(match.group("date"))
                     target = match.group("channel").lower()
+                    try:
+                        pattern = re.compile(match.group("search"), re.IGNORECASE)
+                    except re.error as e:
+                        self.msg(channel, "%s: I'm sorry, but that is an invalid pattern (%s)" % (nick, e))
+                        return
                     if not target in self.factory.config['channels']:
                         self.msg(channel, "%s: I'm sorry, but I can't let you look at my %s logs." % (nick, target))
                         return
                     if date:
-                        req = self.history.grep_lines(target, date, match.group("search"), self.uploader)
+                        req = self.history.grep_lines(target, date, pattern, self.uploader)
                         req.addCallback(lambda output: self.msg(channel, "%s: %s" % (nick, output)))
                         req.addErrback(lambda error: self._report_error("%s: Sorry, but I got an error (%s) searching for that :(" % (nick, error.__class__.__name__), channel, error))
                     else:
