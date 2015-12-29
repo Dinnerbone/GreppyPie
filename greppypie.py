@@ -436,7 +436,7 @@ class GreppyPieBot(irc.IRCClient):
         if input == "today":
             return datetime.date.today()
 
-        match = re.match(r"^(?P<year>\d{1,4})(?:|(?P<separator>[-\./\\]?)(?P<month>\d{1,2}(?:|(?P=separator)(?P<day>\d{1,2}))))$", input, flags=re.UNICODE)
+        match = re.match(r"^(?P<year>\d{1,4})(?:|(?P<separator>[-\./\\]?)(?:(?P<month>\d{1,2})(?:|(?P=separator)(?P<day>\d{1,2}))))$", input, flags=re.UNICODE)
         if match:
             now = datetime.date.today()
             year = int(match.group("year").rjust(4, "0"))
