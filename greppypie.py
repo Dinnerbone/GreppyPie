@@ -204,7 +204,7 @@ class MessageHistory:
 
         return date, victims
 
-    def _find_files(self, min_date, channel):
+    def _find_files(self, min_date, max_date, channel):
         result = []
         for path in sorted(glob.iglob(self.directory.format(channel=channel))):
             filename = os.path.basename(path)
@@ -212,7 +212,7 @@ class MessageHistory:
             if match:
                 try:
                     date = datetime.date(int(match.group("year")), int(match.group("month")), int(match.group("date")))
-                    if date >= min_date:
+                    if date >= min_date and date <= max_date:
                         result.append((path, date))
                 except ValueError:
                     self.log.failure("Couldn't parse date from {filename}", filename=filename)
@@ -220,9 +220,9 @@ class MessageHistory:
                 self.log.failure("Couldn't parse date from {filename} (does it match the configured pattern?)", filename=filename)
         return result
 
-    def grep_lines(self, channel, min_date, search, uploader):
+    def grep_lines(self, channel, min_date, max_date, search, uploader):
         callback = defer.Deferred()
-        find_files = threads.deferToThread(self._find_files, min_date, channel)
+        find_files = threads.deferToThread(self._find_files, min_date, max_date, channel)
         find_files.addCallback(lambda files: threads.deferToThread(self._grep_lines, search, files, callback, uploader))
         find_files.addErrback(lambda error: callback.errback(error))
         return callback
@@ -268,9 +268,9 @@ class MessageHistory:
         else:
             return "Sorry, but I couldn't find anything :("
 
-    def stalk_user(self, channel, min_date, search, uploader):
+    def stalk_user(self, channel, min_date, max_date, search, uploader):
         callback = defer.Deferred()
-        find_files = threads.deferToThread(self._find_files, min_date, channel)
+        find_files = threads.deferToThread(self._find_files, min_date, max_date, channel)
         find_files.addCallback(lambda files: threads.deferToThread(self._stalk_user, search, files, callback, uploader))
         find_files.addErrback(lambda error: callback.errback(error))
         return callback
@@ -380,13 +380,13 @@ class GreppyPieBot(irc.IRCClient):
 
                 match = re.match(r"^stalk (?P<channel>[#\w]+) (?P<date>\S+) (?P<search>.+)$", msg, flags=re.UNICODE)
                 if match:
-                    date = self._parse_date(match.group("date"))
+                    dates = self._parse_date(match.group("date"))
                     target = match.group("channel").lower()
                     if not target in self.factory.config['channels']:
                         self.msg(channel, "%s: I'm sorry, but I can't let you look at my %s logs." % (nick, target))
                         return
-                    if date:
-                        req = self.history.stalk_user(target, date, match.group("search"), self.uploader)
+                    if dates:
+                        req = self.history.stalk_user(target, dates[0], dates[1], match.group("search"), self.uploader)
                         req.addCallback(lambda output: self.msg(channel, "%s: %s" % (nick, output)))
                         req.addErrback(lambda error: self._report_error("%s: Sorry, but I got an error (%s) searching for that :(" % (nick, error.__class__.__name__), channel, error))
                     else:
@@ -395,7 +395,7 @@ class GreppyPieBot(irc.IRCClient):
 
                 match = re.match(r"^(?P<channel>[#\w]+) (?P<date>\S+) (?P<search>.+)$", msg, flags=re.UNICODE)
                 if match:
-                    date = self._parse_date(match.group("date"))
+                    dates = self._parse_date(match.group("date"))
                     target = match.group("channel").lower()
                     try:
                         pattern = re.compile(match.group("search"), re.IGNORECASE)
@@ -405,8 +405,8 @@ class GreppyPieBot(irc.IRCClient):
                     if not target in self.factory.config['channels']:
                         self.msg(channel, "%s: I'm sorry, but I can't let you look at my %s logs." % (nick, target))
                         return
-                    if date:
-                        req = self.history.grep_lines(target, date, pattern, self.uploader)
+                    if dates:
+                        req = self.history.grep_lines(target, dates[0], dates[1], pattern, self.uploader)
                         req.addCallback(lambda output: self.msg(channel, "%s: %s" % (nick, output)))
                         req.addErrback(lambda error: self._report_error("%s: Sorry, but I got an error (%s) searching for that :(" % (nick, error.__class__.__name__), channel, error))
                     else:
@@ -429,31 +429,47 @@ class GreppyPieBot(irc.IRCClient):
         self.log.failure(message, failure=error)
         self.msg(channel, message)
 
+    def _make_date(self, year, month, day):
+        try:
+            return datetime.date(year, month, day)
+        except ValueError:
+            return None
+
     def _parse_date(self, input):
         if input == "-" or input == "*":
-            return datetime.date.min
+            return datetime.date.min, datetime.date.max
 
         if input == "today":
-            return datetime.date.today()
+            return datetime.date.today(), datetime.date.today()
 
         match = re.match(r"^(?P<year>\d{1,4})(?:|(?P<separator>[-\./\\]?)(?:(?P<month>\d{1,2})(?:|(?P=separator)(?P<day>\d{1,2}))))$", input, flags=re.UNICODE)
         if match:
             now = datetime.date.today()
             year = int(match.group("year").rjust(4, "0"))
+
             if match.group("month"):
                 month = int(match.group("month").rjust(2, "0"))
-            else:
-                month = 1
-            if match.group("day"):
-                day = int(match.group("day").rjust(2, "0")) or 1
-            else:
-                day = 1
-            try:
-                return datetime.date(year, month, day)
-            except ValueError:
-                return None
 
-        return None
+                if match.group("day"):
+                    day = int(match.group("day").rjust(2, "0"))
+                    min_date = self._make_date(year, 1, 1)
+                    max_date = min_date
+                else:
+                    min_date = self._make_date(year, month, 1)
+                    if min_date:
+                        if min_date.month == 12:
+                            max_date = min_date.replace(day=31)
+                        else:
+                            max_date = min_date.replace(month=month + 1) - datetime.timedelta(days=1)
+            else:
+                min_date = self._make_date(year, 1, 1)
+                if min_date:
+                    max_date = min_date.replace(year=year + 1) - datetime.timedelta(days=1)
+        
+        if min_date and max_date:
+            return min_date, max_date
+        else:
+            return None
 
 
 class GreppyPieFactory(protocol.ClientFactory):
