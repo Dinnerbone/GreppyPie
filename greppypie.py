@@ -139,6 +139,7 @@ class MessageHistory:
         self.formats = formats
 
     def _create_log_line(self, line):
+        line = unicode(line.strip(), errors='replace')
         for key, pattern in self.formats.iteritems():
             match = re.match(self.formats[key], line)
             if match:
@@ -151,7 +152,7 @@ class MessageHistory:
         lines = []
         for line in open(path, 'r'):
             if re.search(pattern, line):
-                entry = self._create_log_line(line.strip())
+                entry = self._create_log_line(line)
                 if entry:
                     lines.append(entry)
         return date, lines
@@ -160,7 +161,7 @@ class MessageHistory:
         path, date = logfile
         victims = {}
         for line in open(path, 'r'):
-            entry = self._create_log_line(line.strip())
+            entry = self._create_log_line(line)
             if entry:
                 type, line, parts = entry
                 for key in ["nick", "kicker_nick", "new_nick"]:
