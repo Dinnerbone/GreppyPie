@@ -453,7 +453,7 @@ class GreppyPieBot(irc.IRCClient):
 
                 if match.group("day"):
                     day = int(match.group("day").rjust(2, "0"))
-                    min_date = self._make_date(year, 1, 1)
+                    min_date = self._make_date(year, month, day)
                     max_date = min_date
                 else:
                     min_date = self._make_date(year, month, 1)
