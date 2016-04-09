@@ -133,10 +133,11 @@ class TextUploader:
 class MessageHistory:
     log = Logger()
 
-    def __init__(self, directory, filename_format, formats):
+    def __init__(self, directory, filename_format, formats, stopwords):
         self.directory = directory
         self.filename_format = filename_format
         self.formats = formats
+        self.stopwords = stopwords
 
     def _create_log_line(self, line):
         line = unicode(line.strip(), errors='replace')
@@ -204,6 +205,40 @@ class MessageHistory:
                         victims[nick] = victim
 
         return date, victims
+
+    def _find_words_in_file(self, logfile):
+        path, date = logfile
+        words = {}
+        nicks = set()
+        for line in open(path, 'r'):
+            entry = self._create_log_line(line)
+            if entry:
+                type, line, parts = entry
+                for key in ["nick", "kicker_nick", "new_nick"]:
+                    if key in parts:
+                        nicks.add(parts[key])
+                if type == "message" and "message" in parts and parts["message"] is not None:
+                    for word in parts["message"].split():
+                        if len(word) > 2 and word.isalpha():
+                            word = word.lower()
+                            if word not in words:
+                                words[word] = 1
+                            else:
+                                words[word] += 1
+
+        for word in self.stopwords:
+            word = word.lower()
+            if word in words:
+                del words[word]
+        # This ignores words where someone has used the nick *on the same day*
+        # This should avoid problems where someone nicks to "hello" one time,
+        # and then "hello" is no longer a valid word.
+        for nick in nicks:
+            nick = nick.lower()
+            if nick in words:
+                del words[nick]
+
+        return words
 
     def _find_files(self, min_date, max_date, channel):
         result = []
@@ -349,6 +384,46 @@ class MessageHistory:
         url = uploader._upload_text(report)
         return "%d nick(s) / %d ident(s) / %d host(s) for %s - %s" % (len(victim.nicks), len(victim.idents), len(victim.hosts), search, url)
 
+    def word_count(self, channel, min_date, max_date, uploader):
+        callback = defer.Deferred()
+        find_files = threads.deferToThread(self._find_files, min_date, max_date, channel)
+        find_files.addCallback(lambda files: threads.deferToThread(self._word_count, files, callback, uploader))
+        find_files.addErrback(lambda error: callback.errback(error))
+        return callback
+
+    def _word_count(self, files, callback, uploader):
+        defers = []
+        for logfile in files:
+            defers.append(threads.deferToThread(self._find_words_in_file, logfile))
+        dl = defer.DeferredList(defers, consumeErrors=True)
+        dl.addCallback(lambda results: threads.deferToThread(self._generate_word_count_report, results, callback, uploader).chainDeferred(callback))
+
+    def _generate_word_count_report(self, results, callback, uploader):
+        all_words = {}
+        for success, words in results:
+            if success:
+                for word, count in words.iteritems():
+                    if word not in all_words:
+                        all_words[word] = count
+                    else:
+                        all_words[word] += count
+            else:
+                self.log.failure("Couldn't grep lines", failure=words)
+
+        if not all_words:
+            return "Sorry, but I couldn't find any words :("
+
+        report = ""
+        position = 1
+        for word, count in sorted(all_words.iteritems(), key=lambda (k,v): -v):
+            report += "%s%s(%d times)\n" % (str(position).ljust(10), word.ljust(50), count)
+            position += 1
+            if position > 1000:
+                break
+
+        url = uploader._upload_text(report)
+        return "Showing %d of %d word(s) - %s" % (min(len(all_words), 1000), len(all_words), url)
+
 
 class GreppyPieBot(irc.IRCClient):
     log = Logger()
@@ -359,7 +434,7 @@ class GreppyPieBot(irc.IRCClient):
         self.nickname = factory.config['nickname']
         self.realname = factory.config['realname']
         self.password = factory.config['server']['password']
-        self.history = MessageHistory(factory.config['logs'], factory.config['log-filename'], factory.config['format'])
+        self.history = MessageHistory(factory.config['logs'], factory.config['log-filename'], factory.config['format'], factory.config['stopwords'])
 
     def signedOn(self):
         for channel in self.factory.config['join']:
@@ -388,6 +463,21 @@ class GreppyPieBot(irc.IRCClient):
                         return
                     if dates:
                         req = self.history.stalk_user(target, dates[0], dates[1], match.group("search"), self.uploader)
+                        req.addCallback(lambda output: self.msg(channel, "%s: %s" % (nick, output)))
+                        req.addErrback(lambda error: self._report_error("%s: Sorry, but I got an error (%s) searching for that :(" % (nick, error.__class__.__name__), channel, error))
+                    else:
+                        self.msg(channel, "%s: I'm sorry, but that's an invalid date. (Valid examples: '-', 'today', '2015', '2011-02', 2011-02-03', etc)" % nick)
+                    return
+
+                match = re.match(r"^wordcount (?P<channel>[#\w]+) (?P<date>\S+)$", msg, flags=re.UNICODE)
+                if match:
+                    dates = self._parse_date(match.group("date"))
+                    target = match.group("channel").lower()
+                    if not target in self.factory.config['channels']:
+                        self.msg(channel, "%s: I'm sorry, but I can't let you look at my %s logs." % (nick, target))
+                        return
+                    if dates:
+                        req = self.history.word_count(target, dates[0], dates[1], self.uploader)
                         req.addCallback(lambda output: self.msg(channel, "%s: %s" % (nick, output)))
                         req.addErrback(lambda error: self._report_error("%s: Sorry, but I got an error (%s) searching for that :(" % (nick, error.__class__.__name__), channel, error))
                     else:
