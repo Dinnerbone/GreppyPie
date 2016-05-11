@@ -218,9 +218,8 @@ class MessageHistory:
                     if key in parts:
                         nicks.add(parts[key])
                 if type == "message" and "message" in parts and parts["message"] is not None:
-                    for word in parts["message"].split():
+                    for word in parts["message"].lower().replace(r'[^a-z0-9]', '').split():
                         if len(word) > 2 and word.isalpha():
-                            word = word.lower()
                             if word not in words:
                                 words[word] = 1
                             else:
