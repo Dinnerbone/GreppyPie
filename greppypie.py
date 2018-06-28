@@ -108,6 +108,9 @@ class Victim:
 class TextUploader:
     log = Logger()
 
+    def __init__(self, token):
+        self._token = token
+
     def upload_text(self, content):
         return threads.deferToThread(self._upload_text, content)
 
@@ -124,7 +127,8 @@ class TextUploader:
                 }
             }),
             headers={
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': 'token ' + self._token,
             }
         )
         return str(r.json()['files']['results.txt']['raw_url'])
@@ -429,7 +433,7 @@ class GreppyPieBot(irc.IRCClient):
 
     def __init__(self, factory):
         self.factory = factory
-        self.uploader = TextUploader()
+        self.uploader = TextUploader(factory.config['gist_access_token'])
         self.nickname = factory.config['nickname']
         self.realname = factory.config['realname']
         self.password = factory.config['server']['password']

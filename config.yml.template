@@ -10,6 +10,7 @@ server:
   host: irc.freenode.net
   password: 
   port: 6667
+gist_access_token: xxxxxxxxx
 format:
   action: '^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \* (?P<nick>\S+)(?: (?P<action>.*)|)$'
   join: '^\[[^\]]*(?P<time>\d{2}:\d{2}:\d{2})\] \*{3} Joins: (?P<nick>\S+) \((?P<ident>\S+)@(?P<host>\S+)\)$'
